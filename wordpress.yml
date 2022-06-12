@@ -4,11 +4,11 @@
 
 #variable declaration
   vars:
-    mysql_root_password: test123#
-    mysql_db: wordpressdb
-    mysql_user: wordpressuser
-    mysql_password: wordpress@123#
-    http_host: html
+    mysql_root_password: <pass>
+    mysql_db: <db name>
+    mysql_user: <db user>
+    mysql_password: <password>
+    http_host: <path>
 #Package installation        
   tasks:
         - name: LAMP Install
