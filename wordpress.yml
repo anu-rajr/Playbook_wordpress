@@ -1,0 +1,88 @@
+---
+- name: Wordpress Installation
+  hosts: server
+
+#variable declaration
+  vars:
+    mysql_root_password: test123#
+    mysql_db: wordpressdb
+    mysql_user: wordpressuser
+    mysql_password: wordpress@123#
+    http_host: html
+#Package installation        
+  tasks:
+        - name: LAMP Install
+          yum: pkg={{item}} state=installed
+          with_items:
+                - httpd
+                - mariadb-server
+                - php
+                - php-mysql
+        - shell: 'rpm -q httpd mariadb-server php'
+          register: pkg
+        - debug: var=pkg.stdout_lines
+
+        - name: Enabling / Starting services
+          service: name={{item}} state=restarted enabled=yes
+          with_items:
+                - httpd
+                - mariadb
+#Mysql secure installation
+        - name: delete anonymous MySQL server user for {{ ansible_hostname }}
+          action: mysql_user user="" host="{{ ansible_hostname }}" state="absent"
+
+        - name: delete anonymous MySQL server user for localhost
+          action: mysql_user user="" state="absent"
+
+        - name: remove the MySQL test database
+          action: mysql_db db=test state=absent
+
+
+        - name: Change root user password on first run
+          mysql_user: login_user=root
+                login_password=''
+                name=root
+                password={{ mysql_root_password }}
+                priv=*.*:ALL,GRANT
+                host={{ item }}
+          with_items:
+                - "{{ ansible_hostname }}"
+                - 127.0.0.1
+                - ::1
+                - localhost
+#Create Databse
+        - name: Creates database for WordPress
+          mysql_db:
+                name: "{{ mysql_db }}"
+                state: present
+                login_user: root
+                login_password: "{{ mysql_root_password }}"
+          tags: [ mysql ]
+
+        - name: Create MySQL user for WordPress
+          mysql_user:
+                name: "{{ mysql_user }}"
+                password: "{{ mysql_password }}"
+                priv: "{{ mysql_db }}.*:ALL"
+                state: present
+                login_user: root
+                login_password: "{{ mysql_root_password }}"
+          tags: [ mysql ]
+
+#Wordpress Download
+        - name: Download and unpack latest WordPress
+          unarchive:
+                src: https://wordpress.org/latest.tar.gz
+                dest: "/var/www/{{ http_host }}"
+                remote_src: yes
+                creates: "/var/www/{{ http_host }}/wordpress"
+          tags: [ wordpress ]
+
+#Copy wp files
+        - name: Set up wp-config
+          template:
+                src: "/root/playbook-wordpress/wordpress/wp-config.php.j2"
+                dest: "/var/www/{{ http_host }}/wordpress/wp-config.php"
+          tags: [ wordpress ]
+
+...
